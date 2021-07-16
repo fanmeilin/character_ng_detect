@@ -116,6 +116,7 @@ class Word_Classification:
             if not(next_index):
                 index_another = index-1
                 if(index_another==-1):index_another = length-1
+            
             return index_another
 
         def inter_angle(img_position, index, next_index=True):
@@ -135,11 +136,13 @@ class Word_Classification:
             得到两个字符之间的弧长
             """
             return radius*(angle/180*math.pi)
-
+        if(len(img_position)==1):
+            return [img_position]
         img_position = sorted(img_position,key=lambda x:(x[1]), reverse=True)
         start_index = 0
         length = len(img_position)
         result_list = []
+        
         while(get_arc_length(inter_angle(img_position,start_index,False),radius)<thresh): #找寻开头元素
             start_index = index_next(start_index,length,False) 
             
