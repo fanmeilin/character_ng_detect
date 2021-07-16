@@ -5,6 +5,7 @@
 
 #### 使用方法
 - 定义classes名称和权重路径建立Word_Classification实例，通过图像信息和匹配字符串调用该实例的get_str_matchInfo函数，可以得到ng判断，以及具体的str_bbox_list，str_list信息
+
 ```python
 from character_ng_detect import Word_Classification
 distribution_classes = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
