@@ -11,7 +11,7 @@
 from character_ng_detect import Word_Classification
 
 distribution_classes = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
-weights_path = "./assets/resnet34.pt"
+weights_path = "./assets/levit_128s.pt"
 
 start = time.time()
 
