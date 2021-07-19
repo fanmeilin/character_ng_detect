@@ -18,14 +18,14 @@ class CC:
         self.model = ViTBase16(n_classes=n_classes,pretrained=pretrained) 
         self.model.load_state_dict(torch.load(weights_path))
         self.model.to(self.device)
-        
+        self.model.eval()  #!
     @staticmethod
     def process(group):
         """
         对一组图片进行预处理 
         """
         img_list = []
-        resize = transforms.Resize([224,244])
+        resize = transforms.Resize([224,224])
         toTensor = transforms.ToTensor()
         for img in group:
             if img.ndim!=2:
@@ -265,16 +265,12 @@ class Word_Classification:
                         re_revise += "[0DO]"
                     elif (char in ('7','T')):
                         re_revise += "[7T]"
-                    elif (char in ('S','5')):
-                        re_revise += "[S5]"
-                    elif (char in ('Z','2')):
-                        re_revise += "[Z2]"
-                    elif (char in ('1','I')):
-                        re_revise += "[1I]"
-                    elif (char in ('B','6')):
-                        re_revise += "[B6]"
-                    elif (char in ('B','8')):
-                        re_revise += "[B8]"
+                    elif (char in ('S','5','2','Z')):
+                        re_revise += "[S52Z]"
+                    elif (char in ('1','I','L')):
+                        re_revise += "[1IL]"
+                    elif (char in ('B','6','8')):
+                        re_revise += "[B68]"
                     elif not(char.isalnum()):
                         re_revise += "."
                     else:
