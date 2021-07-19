@@ -1,23 +1,13 @@
+from lib.Net import ViTBase16
 import cmath
 import math
 import cv2 as cv
 import numpy as np
 import torch
-import torch.nn as nn
 from PIL import Image
 from torchvision import transforms
-import timm
 import cv2
 import re
-
-class ViTBase16(nn.Module):
-    def __init__(self,n_classes,pretrained = False):
-        super(ViTBase16,self).__init__()
-        self.model = timm.create_model("resnet34",pretrained=pretrained,in_chans =1,num_classes=n_classes)
-    def forward(self,x):
-        x = self.model(x)
-        x = x.argmax(dim=1)
-        return x
 
 class CC:
     def __init__(self,weights_path,distribution_classes,pretrained = False):
@@ -279,10 +269,12 @@ class Word_Classification:
                         re_revise += "[S5]"
                     elif (char in ('Z','2')):
                         re_revise += "[Z2]"
-                    elif (char in ('9','Q')):
-                        re_revise += "[0DO]"
                     elif (char in ('1','I')):
                         re_revise += "[1I]"
+                    elif (char in ('B','6')):
+                        re_revise += "[B6]"
+                    elif (char in ('B','8')):
+                        re_revise += "[B8]"
                     elif not(char.isalnum()):
                         re_revise += "."
                     else:
