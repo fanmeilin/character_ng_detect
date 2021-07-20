@@ -1,59 +1,35 @@
-from lib.Net import ViTBase16
 import cmath
 import math
 import cv2 as cv
 import numpy as np
-import torch
-from PIL import Image
-from torchvision import transforms
 import cv2
-import re
+import os
+import uuid
+"""
+对一张大图 的所有小图切分二值化保存至对应文件夹中
+"""
 
-class CC:
-    def __init__(self,weights_path,distribution_classes,pretrained = False):
-        n_classes = len(distribution_classes)
-        self.distribution_classes = distribution_classes
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        # 模型定义和加载
-        self.model = ViTBase16(n_classes=n_classes,pretrained=pretrained) 
-        self.model.load_state_dict(torch.load(weights_path))
-        self.model.to(self.device)
-        self.model.eval()  #!
-    @staticmethod
-    def process(group):
-        """
-        对一组图片进行预处理 
-        """
-        img_list = []
-        resize = transforms.Resize([224,224])
-        toTensor = transforms.ToTensor()
-        for img in group:
-            if img.ndim!=2:
-                img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY) #转化为灰度图
-            blur = cv.GaussianBlur(img,(5,5),0)
-            _,thImg = cv.threshold(blur,0,255,cv.THRESH_BINARY_INV+cv.THRESH_OTSU)  
-            mask = cv.erode(thImg.astype('uint8'), kernel=np.ones((3,3)))
-            #resize and normalize
-            mask = Image.fromarray(mask)
-            mask = toTensor(resize(mask)) 
-            img_list.append(mask.cpu().numpy())
-        return torch.tensor(img_list) 
+def process(group):
+    """
+    对一组图片进行预处理 
+    """
+    img_list = []
+    # resize = transforms.Resize([224,224])
+    # toTensor = transforms.ToTensor()
+    for img in group:
+        if img.ndim!=2:
+            img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY) #转化为灰度图
+        blur = cv.GaussianBlur(img,(5,5),0)
+        _,thImg = cv.threshold(blur,0,255,cv.THRESH_BINARY_INV+cv.THRESH_OTSU)  
+        mask = cv.erode(thImg.astype('uint8'), kernel=np.ones((3,3)))
+        #resize and normalize
+        # mask = Image.fromarray(mask)
+        # mask = toTensor(resize(mask)) 
+        img_list.append(mask)
+    return img_list
     
-    def get_pred_str(self,group):
-        img_list = CC.process(group)
-        if self.device.type=="cuda":
-            img_list = img_list.cuda()
-        output = self.model(img_list)
-        result = ""
-        for index in output:
-            result += self.distribution_classes[index] 
-        return result
 
-class Word_Classification:
-    def __init__(self, weights_path,distribution_classes):
-        cc_obj = CC(weights_path,distribution_classes)
-        self.cc_obj = cc_obj
-        
+class Box2File:        
     @staticmethod
     def get_img_character_position(bbox_list, center):
         '''
@@ -239,152 +215,34 @@ class Word_Classification:
             raw_group = []
             for character_info in cluster:
                 characterCenter = character_info[0]
-                result = Word_Classification.getPatternByCenter(img,circleCenter,characterCenter,Rlength,boderValue=boderValue) #self.img
+                result = Box2File.getPatternByCenter(img,circleCenter,characterCenter,Rlength,boderValue=boderValue) #self.img
                 result = result[Cstart:Cend,Cstart:Cend]
                 raw_group.append(result)
             raw_group_list.append(raw_group)
         return raw_group_list
-    @staticmethod
-    def get_redetect_info(pattern_list,result_list):
-        """
-        检测字符匹配的情况
-        input: pattern_list:提供的正则表达式列表 result_list 网络检测的字符串列表
-        return: message:对比之后返回的检测信息
-        """
-        def revise_re(re_list):
-            """
-            修改提供的正则表达式
-            input: re_list 待修改的字符串列表
-            return：re_revise_list 修改后的字符串列表
-            """
-            re_revise_list = []
-            for pattern in re_list:
-                re_revise = ""
-                for char in pattern:
-                    if (char in ('0','D','O','Q')):
-                        re_revise += "[0DOQ]"
-                    elif (char in ('7','T')):
-                        re_revise += "[7T]"
-                    elif (char in ('S','5','2','Z')):
-                        re_revise += "[S52Z]"
-                    elif (char in ('1','I','L')):
-                        re_revise += "[1IL]"
-                    elif (char in ('B','6','8')):
-                        re_revise += "[B68]"
-                    elif not(char.isalnum()):
-                        re_revise += "."
-                    else:
-                        re_revise += char
-                re_revise_list.append(re_revise)
-            return re_revise_list 
 
-        pattern_list = revise_re(pattern_list)
-        is_NG = False
-        if(len(result_list)!=len(pattern_list)):
-            is_NG = True
-            return is_NG
 
-        for item in result_list:
-            flag = False
-            for pattern in pattern_list:
-                match_obj = re.match(pattern,item)
-                if (match_obj and len(item)==len(match_obj.group())):
-                    flag = True
-                    break
-            if not flag:
-                is_NG = True
-                break
-        return is_NG
-    
-    def get_str_matchInfo(self, img, bbox_list, r_inner, r_outer, center, pattern_list=[],ratio=0.9,ratio_rwidth=1.7):
-        '''
-        通过图片相关信息，获取聚类且切分好的字符串
-        输入：img：图片 bbox_list：所有字符的box xyxy的信息, r_inner：字符所在的区域的内圆半径,r_outer：字符所在的区域的外圆半径
-        center：圆心 xy，pattern_list:提供的匹配字符串, ratio=0.9 表示剪裁的大小依据 （半径差的ratio倍） ratio_rwidth:判断字符group的基准 thresh：ratio_rwidth*r_width
-        输出：str_list：表示裁剪并旋转后返回的聚类好的字符串列表 message匹配结果信息
-        '''
+    def save_img(self, img, filename ,bbox_list, r_inner, r_outer, center, pattern_list=[],ratio=0.9,ratio_rwidth=1.7):
         img_position = self.get_img_character_position(bbox_list,center)
         radius = r_inner+(r_outer-r_inner)/2
         r_width = r_outer-r_inner
         # set thresh 字符间弧长的间距不超过半径差的ratio_rwidth倍 则认为是相同group
         thresh = ratio_rwidth*r_width
         cluster_character_list = self.cluster_character(img_position,radius, thresh=thresh)
-        str_bbox_list = self.find_strbbox(cluster_character_list)
         cropRlength = int(ratio*(r_outer-r_inner)) 
         Rlength = 2*cropRlength
         raw_group_list = self.get_raw_group(cluster_character_list, img, center, Rlength, cropRlength)
-        str_list = []
         for raw_group in raw_group_list:
-            group_str = self.cc_obj.get_pred_str(raw_group)
-            str_list.append(group_str)
-        is_NG = Word_Classification.get_redetect_info(pattern_list,str_list)
-        result = {"str_bbox_list":str_bbox_list,"pattern_list":pattern_list,"str_list":str_list}
-        return is_NG,result
-
-
-    @staticmethod
-    def get_detect_info(pattern_list,result_list):
-        """
-        检测字符匹配的情况（仅仅忽略非数字和字母的情况）
-        input: pattern_list:提供的正则表达式列表(仅仅忽略非数字和字母的情况) result_list 网络检测的字符串列表
-        return: message:对比之后返回的检测信息
-        """
-        def revise_re(re_list):
-            """
-            修改提供的正则表达式
-            input: re_list 待修改的字符串列表
-            return：re_revise_list 修改后的字符串列表
-            """
-            re_revise_list = []
-            for pattern in re_list:
-                re_revise = ""
-                for char in pattern:
-                    if not(char.isalnum()):
-                        re_revise += "."
-                    else:
-                        re_revise += char
-                re_revise_list.append(re_revise)
-            return re_revise_list 
-
-        pattern_list = revise_re(pattern_list)
-        is_NG = False
-        if(len(result_list)!=len(pattern_list)):
-            is_NG = True
-            return is_NG
-
-        for item in result_list:
-            flag = False
             for pattern in pattern_list:
-                match_obj = re.match(pattern,item)
-                if (match_obj and len(item)==len(match_obj.group())):
-                    flag = True
-                    break
-            if not flag:
-                is_NG = True
-                break
-        return is_NG
-
-    def get_str_Info(self, img, bbox_list, r_inner, r_outer, center, pattern_list=[],ratio=0.9,ratio_rwidth=1.7):
-        '''
-        通过图片相关信息，获取聚类且切分好的字符串（仅仅忽略非数字和字母的情况）
-        输入：img：图片 bbox_list：所有字符的box xyxy的信息, r_inner：字符所在的区域的内圆半径,r_outer：字符所在的区域的外圆半径
-        center：圆心 xy，pattern_list:提供的匹配字符串, ratio=0.9 表示剪裁的大小依据 （半径差的ratio倍） ratio_rwidth:判断字符group的基准 thresh：ratio_rwidth*r_width
-        输出：str_list：表示裁剪并旋转后返回的聚类好的字符串列表 message匹配结果信息（仅仅忽略非数字和字母的情况）
-        '''
-        img_position = self.get_img_character_position(bbox_list,center)
-        radius = r_inner+(r_outer-r_inner)/2
-        r_width = r_outer-r_inner
-        # set thresh 字符间弧长的间距不超过半径差的ratio_rwidth倍 则认为是相同group
-        thresh = ratio_rwidth*r_width
-        cluster_character_list = self.cluster_character(img_position,radius, thresh=thresh)
-        str_bbox_list = self.find_strbbox(cluster_character_list)
-        cropRlength = int(ratio*(r_outer-r_inner)) 
-        Rlength = 2*cropRlength
-        raw_group_list = self.get_raw_group(cluster_character_list, img, center, Rlength, cropRlength)
-        str_list = []
-        for raw_group in raw_group_list:
-            group_str = self.cc_obj.get_pred_str(raw_group)
-            str_list.append(group_str)
-        is_NG = Word_Classification.get_detect_info(pattern_list,str_list)
-        result = {"str_bbox_list":str_bbox_list,"pattern_list":pattern_list,"str_list":str_list}
-        return is_NG,result
+                if(len(raw_group)==len(pattern)):
+                    raw_group = process(raw_group)
+                    for img,label in zip(raw_group,pattern):
+                        if label=='/':
+                            label = "slash"
+                        img_root = "F:/localTest/img_cluster/"+label
+                        os.makedirs(img_root,exist_ok=True)
+                        # filename = uuid.uuid4().hex
+                        cv.imwrite(img_root+"/"+filename+".png",img)
+                        
+                   
+        
