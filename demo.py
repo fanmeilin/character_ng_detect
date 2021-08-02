@@ -38,24 +38,24 @@ def main(img,bbox_list,r_inner,r_outer,center,pattern_list):
     # plt.imshow(img0)
     # plt.show()
 
-if __name__=="__main__":
-    os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-    #load data
-    img = cv.imread("./assets/test.png")
-    img_json_path = "./assets/test.json"
+# if __name__=="__main__":
+#     os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+#     #load data
+#     img = cv.imread("./assets/test.png")
+#     img_json_path = "./assets/test.json"
 
-    #get info
-    ring_obj = Ring_Processer(img)
-    circles = ring_obj.circle_list
-    r_inner = circles[2][2]
-    r_outer = circles[3][2]
-    center = ring_obj.get_center(circles)
-    bbox_list = []
-    with open(img_json_path,'r',encoding='utf8')as fp:
-        json_data = json.load(fp)
-    for item in json_data["shapes"]:
-        if item["label"]=="word":
-            bbox_list.append(item["points"])
-    pattern_list = ["6202/P6","B"] 
+#     #get info
+#     ring_obj = Ring_Processer(img)
+#     circles = ring_obj.circle_list
+#     r_inner = circles[2][2]
+#     r_outer = circles[3][2]
+#     center = ring_obj.get_center(circles)
+#     bbox_list = []
+#     with open(img_json_path,'r',encoding='utf8')as fp:
+#         json_data = json.load(fp)
+#     for item in json_data["shapes"]:
+#         if item["label"]=="word":
+#             bbox_list.append(item["points"])
+#     pattern_list = ["6202/P6","B"] 
 
-    main(img,bbox_list,r_inner,r_outer,center,pattern_list)
+#     main(img,bbox_list,r_inner,r_outer,center,pattern_list)
